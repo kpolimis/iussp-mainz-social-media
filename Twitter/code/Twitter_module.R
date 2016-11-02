@@ -178,47 +178,78 @@ physical_activity_tweets = tbl_df(read.csv("../data/physical_activity_tweets.csv
 #' Pipes in R look like `%>%` and are made available via the `magrittr`
 #' package installed as part of `dplyr`
 
+#' make a data frame of filtered tweets that removes individuals without demographic estimates from Face++
+physical_activity_tweets_filtered = physical_activity_tweets_raw %>% na.omit()
+
+#' exclusionary criteria
+nrow(physical_activity_tweets_filtered)
+length(which(physical_activity_tweets_filtered$age<10))
+length(which(physical_activity_tweets_filtered$race_confidence<50))
+
+physical_activity_tweets_filtered = physical_activity_tweets_filtered %>% filter(age>=10, race_confidence>50)
+
+#' count the amount of unique tweets and users in the data
+nrow(physical_activity_tweets_filtered)
+length(unique(physical_activity_tweets_filtered$name))
+
+#' subset unique users within filtered tweets for demographic analysis
+unique_physical_activity_tweets = physical_activity_tweets_filtered %>% distinct(name, age, race, gender)
+
+### mean age, gender, and race counts and group proportions ###
 #' demographic characteristics of data
-age_demo <- physical_activity_tweets %>% summarise(count = round(mean(age),2))
-gender_demo <- physical_activity_tweets %>% group_by(gender) %>% summarise(count = n()) %>% arrange(desc(count))
-male_race_demo <- physical_activity_tweets %>% filter(gender == "Male") %>% group_by(race) %>% summarise(count = n()) %>% arrange(desc(count))
-female_race_demo <- physical_activity_tweets %>% filter(gender == "Female") %>% group_by(race) %>% summarise(count = n()) %>% arrange(desc(count))
-male_age_demo <- physical_activity_tweets %>% filter(gender == "Male") %>% group_by(race) %>% summarise(count = round(mean(age),2))
-female_age_demo <- physical_activity_tweets %>% filter(gender == "Female") %>% group_by(race) %>% summarise(count = round(mean(age),2))
 
-### mean age and gender counts ###
-age_demo
-gender_demo
+#' data grouped by race
+unique_physical_activity_tweets  %>% 
+  mutate(total = n(), mean_age = round(mean(age),2)) %>% 
+  group_by(race) %>%
+  mutate(counts= n(), prop = round(counts/total,2)) %>% 
+  ungroup() %>%
+  distinct(race, counts, prop, mean_age)
 
-### mean age and race counts for males ###
-male_age_demo
-male_race_demo
+#' data grouped by gender
+unique_physical_activity_tweets  %>% 
+  mutate(total = n()) %>% 
+  group_by(gender) %>%
+  mutate(counts= n(), prop = round(counts/total,2), mean_age = round(mean(age),2)) %>% 
+  ungroup() %>%
+  distinct(gender, counts, prop, mean_age)
 
-### mean age and race counts for females ###
-female_race_demo
-female_age_demo
+#' data grouped by race and gender
+unique_physical_activity_tweets  %>% 
+  mutate(total = n()) %>% 
+  group_by(gender, race) %>% 
+  mutate(counts= n(), mean_age = round(mean(age),2), prop = round(counts/total,2)) %>% 
+  ungroup() %>% 
+  distinct(race, gender, counts, prop, mean_age)
 
 ## Subset the data ## 
 #' subsetting the data by gender
-male_tweets<- subset(physical_activity_tweets, gender == "Male")
-female_tweets<- subset(physical_activity_tweets, gender == "Female")
+#' subset with base R function
+male_tweets<- subset(physical_activity_tweets_filtered, gender == "Male")
+female_tweets<- subset(physical_activity_tweets_filtered, gender == "Female")
 
 #' subsetting the data by race
-black_tweets<- subset(physical_activity_tweets, race == "Black") 
-white_tweets<- subset(physical_activity_tweets, race == "White") 
-asian_tweets<- subset(physical_activity_tweets, race == "Asian")
+#' subset with dplyr
+black_tweets<- subset(physical_activity_tweets_filtered, race == "Black") 
+white_tweets<- subset(physical_activity_tweets_filtered, race == "White") 
+asian_tweets<- subset(physical_activity_tweets_filtered, race == "Asian")
+
+black_male_tweets<- filter(physical_activity_tweets_filtered, race == "Black", gender == "Male")
+white_male_tweets<- filter(physical_activity_tweets_filtered, race == "White", gender == "Male") 
+asian_male_tweets<- filter(physical_activity_tweets_filtered, race == "Asian", gender == "Male")
+
+black_female_tweets<- filter(physical_activity_tweets_filtered, race == "Black", gender == "Female") 
+white_female_tweets<- filter(physical_activity_tweets_filtered, race == "White", gender == "Female") 
+asian_female_tweets<- filter(physical_activity_tweets_filtered, race == "Asian", gender == "Female")
 
 ## Sentiment Analysis ##
-#' import positive and negative words
-pos = readLines("../opinion_lexicon/positive_words.txt")
-neg = readLines("../opinion_lexicon/negative_words.txt")
-source("../opinion_lexicon/sentiment.R")
+# import positive and negative words
+pos = readLines("opinion_lexicon/positive_words.txt")
+neg = readLines("opinion_lexicon/negative_words.txt")
+source("opinion_lexicon/sentiment.R")
 glimpse(pos)
 glimpse(neg)
 
-#' to see all the words in each list, uncomment the two commands below
-#pos
-#neg
 
 ### Sentiment scores by demographic group ##
 #' Compute a simple sentiment score for each tweet 
@@ -232,21 +263,40 @@ white_tweets_sample =  sample_n(white_tweets, 1000)
 asian_tweets_sample =  sample_n(asian_tweets, 1000)
 
 #' sentiment scores
-scores_male<- score.sentiment(male_tweets_sample$text,pos, neg)$score 
-scores_female <- score.sentiment(female_tweets_sample$text,pos, neg)$score 
-scores_black<- score.sentiment(black_tweets_sample$text,pos, neg)$score 
-scores_white <- score.sentiment(white_tweets_sample$text,pos, neg)$score 
-scores_asian <- score.sentiment(asian_tweets_sample$text,pos, neg)$score
+scores_male_sample<- score.sentiment(male_tweets_sample$tweet_text,pos, neg)$score 
+scores_female_sample <- score.sentiment(female_tweets_sample$tweet_text,pos, neg)$score 
+scores_black_sample<- score.sentiment(black_tweets_sample$tweet_text,pos, neg)$score 
+scores_white_sample <- score.sentiment(white_tweets_sample$tweet_text,pos, neg)$score 
+scores_asian_sample <- score.sentiment(asian_tweets_sample$tweet_text,pos, neg)$score
 
-## Average sentiment by demographic background ##
-#' sentiment score table
-group_names <- c("male", "female", "black", "white", "asian") 
-group_score_values<-round(rbind(mean(scores_male),mean(scores_female),mean(scores_black), mean(scores_white), mean(scores_asian)),2)
-group_score_sd<-round(rbind(sd(scores_male),sd(scores_female),sd(scores_black), sd(scores_white), sd(scores_asian)),2)
+scores_black_male = black_male_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
+scores_white_male = white_male_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
+scores_asian_male = asian_male_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
 
-group_score_df = tbl_df(as.data.frame(cbind(group_names, group_score_values, group_score_sd)))
-colnames(group_score_df) = c("group", "mean score", "score st. dev")
-group_score_df
+scores_black_female = black_female_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
+scores_black_female = white_female_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
+scores_black_female = asian_female_tweets$tweet_text %>% score.sentiment(pos, neg) %>% .$score
+
+## Tables: Average sentiment by demographic background  ##
+# demographic group sentiment score tables
+race_group_score_df = physical_activity_tweets_filtered %>% 
+  mutate(score = score.sentiment(.$tweet_text, pos, neg)$score) %>%
+  group_by(race) %>% 
+  summarise(mean=round(mean(score),2), sd=round(sd(score),2))
+race_group_score_df
+
+gender_group_score_df = physical_activity_tweets_filtered %>% 
+  mutate(score = score.sentiment(.$tweet_text, pos, neg)$score) %>%
+  group_by(gender) %>% 
+  summarise(mean=round(mean(score),2), sd=round(sd(score),2))
+gender_group_score_df
+
+# demographic group interaction sentiment score table
+demo_interaction_group_score_df = physical_activity_tweets_filtered %>% 
+  mutate(score = score.sentiment(.$tweet_text, pos, neg)$score) %>%
+  group_by(race, gender) %>% 
+  summarise(mean=round(mean(score),2), sd=round(sd(score),2))
+demo_interaction_group_score_df
 
 ### Save workspace ### 
 #'Save all objects in your current workspace and read back from file in the future
