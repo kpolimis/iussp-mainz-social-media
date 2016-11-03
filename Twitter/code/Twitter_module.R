@@ -298,6 +298,41 @@ demo_interaction_group_score_df = physical_activity_tweets_filtered %>%
   summarise(mean=round(mean(score),2), sd=round(sd(score),2))
 demo_interaction_group_score_df
 
+#' hashtag summary table 
+hashtag_summary_table_prop = physical_activity_tweets_filtered %>%
+  mutate(`#walking` = str_count(tweet_text, "#walking"), 
+         `#biking` = str_count(tweet_text, "#biking"),
+         `#running` = str_count(tweet_text, "#running"),
+         `#jogging` = str_count(tweet_text, "#jogging"),
+         `#pushups` = str_count(tweet_text, "#pushups"),
+         `#pullups` = str_count(tweet_text, "#pullups"),
+         `#homeworkouts` = str_count(tweet_text, "#homeworkouts"),
+         `#bodyweightexercises` = str_count(tweet_text, "#bodyweightexercises"),
+         `#bodyweightworkouts` = str_count(tweet_text, "#bodyweightworkouts"),
+         total = 1) %>%
+  group_by(race, gender) %>%
+  summarise_at(vars(`#walking`:total), sum) %>%
+  tidyr::gather(key = hashtags, value = counts, `#walking`, `#running`, `#jogging`, `#biking`,
+                `#pushups`, `#pullups`, `#homeworkouts`, `#bodyweightexercises`, `#bodyweightworkouts`) %>%
+  mutate(prop = round((counts/total),2))
+
+hashtag_summary_table_counts = physical_activity_tweets_filtered %>%
+  mutate(`#walking` = str_count(tweet_text, "#walking"), 
+         `#biking` = str_count(tweet_text, "#biking"),
+         `#running` = str_count(tweet_text, "#running"),
+         `#jogging` = str_count(tweet_text, "#jogging"),
+         `#pushups` = str_count(tweet_text, "#pushups"),
+         `#pullups` = str_count(tweet_text, "#pullups"),
+         `#homeworkouts` = str_count(tweet_text, "#homeworkouts"),
+         `#bodyweightexercises` = str_count(tweet_text, "#bodyweightexercises"),
+         `#bodyweightworkouts` = str_count(tweet_text, "#bodyweightworkouts"),
+         total = 1) %>%
+  group_by(race, gender) %>%
+  summarise_at(vars(`#walking`:total), sum) 
+
+hashtag_summary_table_counts
+hashtag_summary_table_prop  
+
 ### Save workspace ### 
 #'Save all objects in your current workspace and read back from file in the future
 save.image(file = "../src/EPC2016-Mainz-Twitter.RData")
